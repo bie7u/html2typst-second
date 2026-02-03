@@ -486,7 +486,8 @@ def test_unclosed_delimiter_issue():
     assert "]*" not in result
     
     # Real-world case from issue: bold text followed by superscript bold
-    html = '''<p style="text-align: justify;"><strong>4,66 zł/m</strong><sup><strong>2</strong></sup></p>'''
+    # This pattern appears in mathematical/scientific notation (e.g., units with exponents)
+    html = '''<p><strong>Value</strong><sup><strong>2</strong></sup></p>'''
     result = translate_html_to_typst(html)
     # Should not have ** pattern
     assert "**" not in result

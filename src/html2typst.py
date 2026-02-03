@@ -129,15 +129,12 @@ class HTML2TypstParser(HTMLParser):
                     text = f'_{text}_'
                 break
         
-        # Handle superscript (must be processed after bold/italic)
+        # Handle superscript and subscript (must be processed after bold/italic)
         for tag, attrs in reversed(self.tag_stack):
             if tag == 'sup':
                 text = f'#super[{text}]'
                 break
-        
-        # Handle subscript (must be processed after bold/italic)
-        for tag, attrs in reversed(self.tag_stack):
-            if tag == 'sub':
+            elif tag == 'sub':
                 text = f'#sub[{text}]'
                 break
         
