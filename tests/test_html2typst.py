@@ -368,6 +368,38 @@ def test_span_with_quill_classes():
     print("✓ Span with Quill classes tests passed")
 
 
+def test_consecutive_styled_elements():
+    """Test paragraphs with consecutive styled elements (e.g., multiple spans)."""
+    print("Testing consecutive styled elements...")
+    
+    # Multiple spans with color in a paragraph, separated by plain text
+    html = '''<p><span style="color: black;">Text 1</span>(plain text)<span style="color: black;">Text 2</span></p>'''
+    result = translate_html_to_typst(html)
+    # Should have proper spacing between function calls
+    assert "#text(fill: black)[Text 1]" in result
+    assert "(plain text)" in result
+    assert "#text(fill: black)[Text 2]" in result
+    # Check that result doesn't cause Typst syntax error - should have space before second #text
+    assert ") #text(fill: black)[Text 2]" in result
+    
+    # Test with alignment and multiple styled spans
+    html = '''<p style="text-align: center;"><span style="color: red;">Red</span> and <span style="color: blue;">Blue</span></p>'''
+    result = translate_html_to_typst(html)
+    assert "#align(center)[" in result
+    assert "Red" in result and "Blue" in result
+    
+    # Complex case from issue: paragraph with styled span, plain text, styled span
+    html = '''<p style="text-align: justify;"><span style="color: black;">Działając na podstawie.</span>(tekst ujednolicony: Dz. U.)<span style="color: black;"> Właściciel</span></p>'''
+    result = translate_html_to_typst(html)
+    assert "#text(fill: black)[Działając na podstawie.]" in result
+    assert "(tekst ujednolicony: Dz. U.)" in result
+    assert "#text(fill: black)[ Właściciel]" in result
+    # Critical: there should be space before the second #text to avoid "expected comma" error
+    assert ") #text(fill: black)" in result
+    
+    print("✓ Consecutive styled elements tests passed")
+
+
 def run_all_tests():
     """Run all tests."""
     print("\n" + "="*60)
@@ -391,6 +423,7 @@ def run_all_tests():
         test_complex_quill_example,
         test_edge_cases,
         test_span_with_quill_classes,
+        test_consecutive_styled_elements,
     ]
     
     passed = 0

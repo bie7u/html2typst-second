@@ -197,6 +197,19 @@ class HTML2TypstParser(HTMLParser):
                     text = f'/* unknown alignment: {align} */ {text}'
                 break
         
+        # Add spacing before function calls to avoid syntax errors
+        # If the last output ended with ] or ) and new text starts with # or (
+        # we need a space to separate them for valid Typst syntax
+        if self.result and len(self.result) > 0:
+            last_stripped = self.result[-1].rstrip() if self.result[-1] else ''
+            last_char = last_stripped[-1:] if last_stripped else ''
+            first_stripped = text.lstrip() if text else ''
+            first_char = first_stripped[:1] if first_stripped else ''
+            # Add space if we're appending a function call after a closing bracket/paren
+            # or if we're appending text starting with ( after a function call
+            if (last_char in (']', ')') and first_char == '#') or (last_char == ']' and first_char == '('):
+                self.result.append(' ')
+        
         self.result.append(text)
     
     def apply_span_styles(self, content: str, attrs: Dict[str, str]) -> str:
