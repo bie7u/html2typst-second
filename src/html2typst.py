@@ -100,15 +100,31 @@ class HTML2TypstParser(HTMLParser):
         # Get current context
         text = data
         
+        # Check if we need to use function syntax instead of markup syntax
+        # This is needed when the previous output ends with ] (from a function call)
+        # because Typst parser has issues with ]*...* pattern
+        use_function_syntax = False
+        if self.result and len(self.result) > 0:
+            last_stripped = self.result[-1].rstrip() if self.result[-1] else ''
+            last_char = last_stripped[-1:] if last_stripped else ''
+            if last_char == ']':
+                use_function_syntax = True
+        
         # Apply formatting based on tag stack
         for tag, attrs in reversed(self.tag_stack):
             if tag in ('strong', 'b'):
-                text = f'*{text}*'
+                if use_function_syntax:
+                    text = f'#strong[{text}]'
+                else:
+                    text = f'*{text}*'
                 break
         
         for tag, attrs in reversed(self.tag_stack):
             if tag in ('em', 'i'):
-                text = f'_{text}_'
+                if use_function_syntax:
+                    text = f'#emph[{text}]'
+                else:
+                    text = f'_{text}_'
                 break
         
         # Handle headings
@@ -197,17 +213,17 @@ class HTML2TypstParser(HTMLParser):
                     text = f'/* unknown alignment: {align} */ {text}'
                 break
         
-        # Add spacing before function calls to avoid syntax errors
-        # If the last output ended with ] or ) and new text starts with # or (
-        # we need a space to separate them for valid Typst syntax
+        # Add spacing to avoid Typst syntax errors and improve readability
+        # After a closing bracket ] or paren ), add a space before most text
         if self.result and len(self.result) > 0:
             last_stripped = self.result[-1].rstrip() if self.result[-1] else ''
             last_char = last_stripped[-1:] if last_stripped else ''
             first_stripped = text.lstrip() if text else ''
             first_char = first_stripped[:1] if first_stripped else ''
-            # Add space if we're appending a function call after a closing bracket/paren
-            # or if we're appending text starting with ( after a function call
-            if (last_char in (']', ')') and first_char == '#') or (last_char == ']' and first_char == '('):
+            
+            # Add space if last char is ] or ) and next text doesn't start with certain safe chars
+            # Safe chars after ]: newline, space (already handled by lstrip), and certain punctuation
+            if last_char in (']', ')') and first_char and first_char not in ('\n', ',', '.', ';', ':', '!', '?', ')', ']'):
                 self.result.append(' ')
         
         self.result.append(text)
