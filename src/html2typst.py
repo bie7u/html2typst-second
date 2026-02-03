@@ -21,6 +21,7 @@ class RenderContext:
     debug: bool = False
     in_ordered_list: bool = False
     in_pre: bool = False
+    list_item_started: bool = False  # Track if we've output the list marker
     
     
 class HTML2TypstParser(HTMLParser):
@@ -45,6 +46,8 @@ class HTML2TypstParser(HTMLParser):
         elif tag == 'pre':
             self.context.in_pre = True
             self.result.append('```\n')
+        elif tag == 'li':
+            self.context.list_item_started = False  # Reset for new list item
     
     def handle_endtag(self, tag: str):
         """Handle closing HTML tags."""
@@ -119,32 +122,35 @@ class HTML2TypstParser(HTMLParser):
         # Handle list items
         for tag, attrs in reversed(self.tag_stack):
             if tag == 'li':
-                # Check for indent
-                classes = attrs.get('class', '').split()
-                indent_level = 0
-                for cls in classes:
-                    if cls.startswith('ql-indent-'):
-                        try:
-                            indent_level = int(cls.replace('ql-indent-', ''))
-                        except ValueError:
-                            pass
-                        break
-                
-                indent = '  ' * indent_level
-                marker = '+' if self.context.in_ordered_list else '-'
-                text = f'{indent}{marker} {data}'  # Use original data
+                # Only add marker if this is the first text in the list item
+                if not self.context.list_item_started:
+                    # Check for indent
+                    classes = attrs.get('class', '').split()
+                    indent_level = 0
+                    for cls in classes:
+                        if cls.startswith('ql-indent-'):
+                            try:
+                                indent_level = int(cls.replace('ql-indent-', ''))
+                            except ValueError:
+                                pass
+                            break
+                    
+                    indent = '  ' * indent_level
+                    marker = '+' if self.context.in_ordered_list else '-'
+                    text = f'{indent}{marker} {text}'
+                    self.context.list_item_started = True
                 break
         
         # Handle blockquote
         for tag, attrs in reversed(self.tag_stack):
             if tag == 'blockquote':
-                text = f'> {data}'  # Use original data
+                text = f'> {text}'
                 break
         
         # Handle inline code
         for tag, attrs in reversed(self.tag_stack):
             if tag == 'code' and not self.context.in_pre:
-                text = f'`{data}`'
+                text = f'`{text}`'
                 break
         
         # Handle links
@@ -152,11 +158,10 @@ class HTML2TypstParser(HTMLParser):
             if tag == 'a':
                 href = attrs.get('href', '')
                 if href:
-                    text = f'#link("{href}")[{data}]'
+                    text = f'#link("{href}")[{text}]'
                 elif self.context.debug:
-                    text = f'/* link without href */ {data}'
-                else:
-                    text = data
+                    text = f'/* link without href */ {text}'
+                # else: text stays as is
                 break
         
         # Handle spans with styles
@@ -187,9 +192,9 @@ class HTML2TypstParser(HTMLParser):
                         if self.context.debug and align not in ('left',):
                             text = f'/* list item with alignment: {align} */ {text}'
                     else:
-                        text = f'#align({align})[{data}]'
+                        text = f'#align({align})[{text}]'
                 elif align and align != 'left' and self.context.debug:
-                    text = f'/* unknown alignment: {align} */ {data}'
+                    text = f'/* unknown alignment: {align} */ {text}'
                 break
         
         self.result.append(text)
