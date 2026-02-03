@@ -61,8 +61,10 @@ translate_html_to_typst(html: str, debug: bool = False) -> str
 |------|-------|-------|
 | `<p>`, `<div>` | Paragraph | Converted to paragraphs |
 | `<br>` | `\\` | Line break |
-| `<strong>`, `<b>` | `*text*` | Bold |
-| `<em>`, `<i>` | `_text_` | Italic |
+| `<strong>`, `<b>` | `*text*` or `#strong[text]` | Bold (uses function syntax to avoid delimiter collisions) |
+| `<em>`, `<i>` | `_text_` or `#emph[text]` | Italic (uses function syntax to avoid delimiter collisions) |
+| `<sup>` | `#super[text]` | Superscript |
+| `<sub>` | `#sub[text]` | Subscript |
 | `<u>`, `<s>` | Plain text | Style ignored, text preserved |
 
 ### Headings

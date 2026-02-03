@@ -400,6 +400,67 @@ def test_consecutive_styled_elements():
     print("✓ Consecutive styled elements tests passed")
 
 
+def test_superscript_and_subscript():
+    """Test superscript and subscript conversion."""
+    print("Testing superscript and subscript...")
+    
+    # Simple superscript
+    html = "<p>E = mc<sup>2</sup></p>"
+    result = translate_html_to_typst(html)
+    assert "E = mc" in result
+    assert "#super[2]" in result
+    
+    # Simple subscript
+    html = "<p>H<sub>2</sub>O</p>"
+    result = translate_html_to_typst(html)
+    assert "H" in result and "O" in result
+    assert "#sub[2]" in result
+    
+    # Superscript with bold
+    html = "<p><sup><strong>2</strong></sup></p>"
+    result = translate_html_to_typst(html)
+    assert "#super[#strong[2]]" in result or "#super[*2*]" in result
+    
+    print("✓ Superscript and subscript tests passed")
+
+
+def test_delimiter_collision_prevention():
+    """Test that consecutive markup delimiters are prevented."""
+    print("Testing delimiter collision prevention...")
+    
+    # Bold followed by bold in superscript (the main issue)
+    html = "<p><strong>text</strong><sup><strong>2</strong></sup></p>"
+    result = translate_html_to_typst(html)
+    # Should not have ** pattern which causes unclosed delimiter
+    assert "**" not in result
+    # Should use function syntax for the second bold
+    assert "#strong[2]" in result
+    
+    # Bold followed by italic
+    html = "<p><strong>bold</strong><em>italic</em></p>"
+    result = translate_html_to_typst(html)
+    # Should not have *_ pattern
+    assert "*_" not in result
+    # Should use function syntax
+    assert "#emph[italic]" in result
+    
+    # Italic followed by bold
+    html = "<p><em>italic</em><strong>bold</strong></p>"
+    result = translate_html_to_typst(html)
+    # Should not have _* pattern
+    assert "_*" not in result
+    # Should use function syntax
+    assert "#strong[bold]" in result
+    
+    # Multiple consecutive bold elements
+    html = "<p><strong>one</strong><strong>two</strong><strong>three</strong></p>"
+    result = translate_html_to_typst(html)
+    # Should not have ** pattern
+    assert "**" not in result
+    
+    print("✓ Delimiter collision prevention tests passed")
+
+
 def test_unclosed_delimiter_issue():
     """Test the specific HTML that caused unclosed delimiter error."""
     print("Testing unclosed delimiter issue fix...")
@@ -423,6 +484,15 @@ def test_unclosed_delimiter_issue():
     result = translate_html_to_typst(html, debug=False)
     assert "#strong[" in result
     assert "]*" not in result
+    
+    # Real-world case from issue: bold text followed by superscript bold
+    # This pattern appears in mathematical/scientific notation (e.g., units with exponents)
+    html = '''<p><strong>Value</strong><sup><strong>2</strong></sup></p>'''
+    result = translate_html_to_typst(html)
+    # Should not have ** pattern
+    assert "**" not in result
+    # Should properly handle the superscript
+    assert "#super[" in result
     
     print("✓ Unclosed delimiter issue test passed")
 
@@ -451,6 +521,8 @@ def run_all_tests():
         test_edge_cases,
         test_span_with_quill_classes,
         test_consecutive_styled_elements,
+        test_superscript_and_subscript,
+        test_delimiter_collision_prevention,
         test_unclosed_delimiter_issue,
     ]
     
