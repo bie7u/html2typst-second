@@ -400,6 +400,33 @@ def test_consecutive_styled_elements():
     print("✓ Consecutive styled elements tests passed")
 
 
+def test_unclosed_delimiter_issue():
+    """Test the specific HTML that caused unclosed delimiter error."""
+    print("Testing unclosed delimiter issue fix...")
+    
+    # This HTML previously caused "unclosed delimiter" error in Typst compilation
+    # The issue was with ] followed by *bold* markup after function calls
+    html = '''<p style="text-align: justify;"><span style="color: black;">Członkowie Wspólnoty Mieszkaniowej wyrażają zgodę na
+        zawarcie </span><strong style="color: black;">Porozumisdafsdafasedzkiego</strong><span
+        style="color: black;"> </span>z inwesdafdasfępu sp. z o.o.</p>'''
+    result = translate_html_to_typst(html, debug=False)
+    
+    # Should use #strong[...] instead of *...* after a ] to avoid Typst parser issues
+    assert "#strong[Porozumisdafsdafasedzkiego]" in result
+    # Should not have ]* pattern which causes unclosed delimiter
+    assert "]*" not in result
+    assert "]_" not in result
+    
+    # More complex case with multiple styled elements
+    html = '''<p style="text-align: center;"><span style="color: black;">w sprawie: </span><strong style="color: black;">fasdsaf
+        zgody i udzielenia Zarządowi sadfasdf Mieszkaniowej upoważnienia </strong></p>'''
+    result = translate_html_to_typst(html, debug=False)
+    assert "#strong[" in result
+    assert "]*" not in result
+    
+    print("✓ Unclosed delimiter issue test passed")
+
+
 def run_all_tests():
     """Run all tests."""
     print("\n" + "="*60)
@@ -424,6 +451,7 @@ def run_all_tests():
         test_edge_cases,
         test_span_with_quill_classes,
         test_consecutive_styled_elements,
+        test_unclosed_delimiter_issue,
     ]
     
     passed = 0
