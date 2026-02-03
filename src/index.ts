@@ -1,0 +1,1 @@
+export { translateHtmlToTypst } from './translator';

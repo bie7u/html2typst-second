@@ -1,0 +1,34 @@
+{
+  "name": "html2typst-second",
+  "version": "1.0.0",
+  "description": "Production-quality HTML to Typst translator for Quill.js generated content",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "html",
+    "typst",
+    "quilljs",
+    "converter",
+    "translator"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.2.0",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "domhandler": "^5.0.3",
+    "htmlparser2": "^10.1.0"
+  }
+}
