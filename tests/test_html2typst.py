@@ -506,8 +506,8 @@ def test_debug_comment_collision():
     html = '''<p style="text-align: justify;">Text with <strong>bold</strong> content.</p>'''
     result = translate_html_to_typst(html, debug=True)
     
-    # Should not contain the problematic *//* pattern
-    assert "*/*" not in result, f"Found *//* pattern in: {result}"
+    # Should not contain the problematic *//* pattern (4 characters)
+    assert "*//*" not in result, f"Found *//* pattern in: {result}"
     
     # Should contain proper spacing between bold marker and comment
     # Expected: *bold* /* comment */ or similar
@@ -518,14 +518,14 @@ def test_debug_comment_collision():
 <p style="text-align: justify;">4. Another paragraph.</p>'''
     result = translate_html_to_typst(html, debug=True)
     
-    # Should not contain *//* pattern
-    assert "*/*" not in result, f"Found *//* pattern in complex case: {result}"
+    # Should not contain *//* pattern (4 characters)
+    assert "*//*" not in result, f"Found *//* pattern in complex case: {result}"
     
     # Edge case: comment followed by another comment
     html = '''<p style="text-align: justify;"><strong>Bold</strong></p>
 <p style="text-align: justify;">Text</p>'''
     result = translate_html_to_typst(html, debug=True)
-    assert "*/*" not in result, f"Found *//* in consecutive comments: {result}"
+    assert "*//*" not in result, f"Found *//* in consecutive comments: {result}"
     
     print("✓ Debug comment collision prevention tests passed")
 
