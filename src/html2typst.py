@@ -122,13 +122,11 @@ class HTML2TypstParser(HTMLParser):
         
         # Escape literal asterisks and underscores in plain text
         # Do this BEFORE applying formatting to avoid escaping formatting delimiters
-        # Only escape if the text is NOT inside strong/em tags
-        if not has_strong and not has_em:
-            # Escape backslashes first to avoid double-escaping
-            text = text.replace('\\', '\\\\')
-            # Escape asterisks and underscores
-            text = text.replace('*', r'\*')
-            text = text.replace('_', r'\_')
+        # Escape backslashes first to avoid double-escaping
+        text = text.replace('\\', '\\\\')
+        # Escape asterisks and underscores
+        text = text.replace('*', r'\*')
+        text = text.replace('_', r'\_')
         
         # Apply formatting based on tag stack
         for tag, attrs in reversed(self.tag_stack):
@@ -212,7 +210,7 @@ class HTML2TypstParser(HTMLParser):
         # Handle spans with styles
         for tag, attrs in reversed(self.tag_stack):
             if tag == 'span':
-                text = self.apply_span_styles(data, attrs)
+                text = self.apply_span_styles(text, attrs)
                 break
         
         # Handle paragraph alignment
@@ -338,11 +336,6 @@ class HTML2TypstParser(HTMLParser):
                 result = f'_{result}_'
             elif self.context.debug:
                 unsupported.append(f'font-style: {style}')
-        
-        # Before applying wrappers, escape markup delimiters at the start of content
-        # to prevent Typst from interpreting them as formatting when inside function calls
-        if wrappers and result and result[0] in ('*', '_'):
-            result = '\\' + result
         
         # Apply wrappers
         for wrapper in reversed(wrappers):
