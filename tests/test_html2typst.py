@@ -497,6 +497,39 @@ def test_unclosed_delimiter_issue():
     print("✓ Unclosed delimiter issue test passed")
 
 
+def test_debug_comment_collision():
+    """Test that debug comments don't create invalid Typst syntax."""
+    print("Testing debug comment collision prevention...")
+    
+    # Test case from issue: bold text followed by debug comment
+    # This creates the pattern *//* which causes "unexpected end of block comment" error
+    html = '''<p style="text-align: justify;">Text with <strong>bold</strong> content.</p>'''
+    result = translate_html_to_typst(html, debug=True)
+    
+    # Should not contain the problematic *//* pattern
+    assert "*/*" not in result, f"Found *//* pattern in: {result}"
+    
+    # Should contain proper spacing between bold marker and comment
+    # Expected: *bold* /* comment */ or similar
+    assert "* /*" in result or "*\n/*" in result, f"Missing space after bold marker in: {result}"
+    
+    # Real-world case with multiple paragraphs with justify alignment and bold text
+    html = '''<p style="text-align: justify;">3. Text: <strong>0,5 zł/m2 </strong>more text</p>
+<p style="text-align: justify;">4. Another paragraph.</p>'''
+    result = translate_html_to_typst(html, debug=True)
+    
+    # Should not contain *//* pattern
+    assert "*/*" not in result, f"Found *//* pattern in complex case: {result}"
+    
+    # Edge case: comment followed by another comment
+    html = '''<p style="text-align: justify;"><strong>Bold</strong></p>
+<p style="text-align: justify;">Text</p>'''
+    result = translate_html_to_typst(html, debug=True)
+    assert "*/*" not in result, f"Found *//* in consecutive comments: {result}"
+    
+    print("✓ Debug comment collision prevention tests passed")
+
+
 def run_all_tests():
     """Run all tests."""
     print("\n" + "="*60)
@@ -524,6 +557,7 @@ def run_all_tests():
         test_superscript_and_subscript,
         test_delimiter_collision_prevention,
         test_unclosed_delimiter_issue,
+        test_debug_comment_collision,
     ]
     
     passed = 0
