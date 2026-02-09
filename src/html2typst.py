@@ -10,9 +10,10 @@ Key features:
 """
 
 from html.parser import HTMLParser
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any, Tuple, TextIO
 from dataclasses import dataclass, field
 import re
+import sys
 
 
 @dataclass
@@ -22,6 +23,13 @@ class RenderContext:
     in_ordered_list: bool = False
     in_pre: bool = False
     list_item_started: bool = False  # Track if we've output the list marker
+    log_file: Optional[TextIO] = None  # File handle for debug logging
+    
+    def log(self, message: str):
+        """Write a debug message to the log file if debug mode is enabled."""
+        if self.debug and self.log_file:
+            self.log_file.write(f"{message}\n")
+            self.log_file.flush()
     
     
 class HTML2TypstParser(HTMLParser):
@@ -89,8 +97,8 @@ class HTML2TypstParser(HTMLParser):
                     self.result.append(f'#image("{src}")\n\n')
             elif alt:
                 self.result.append(alt)
-            elif self.context.debug:
-                self.result.append('/* image without src or alt */\n')
+            else:
+                self.context.log('Warning: image without src or alt')
     
     def handle_data(self, data: str):
         """Handle text content."""
@@ -202,9 +210,9 @@ class HTML2TypstParser(HTMLParser):
                 href = attrs.get('href', '')
                 if href:
                     text = f'#link("{href}")[{text}]'
-                elif self.context.debug:
-                    text = f'/* link without href */ {text}'
-                # else: text stays as is
+                else:
+                    self.context.log('Warning: link without href')
+                    # text stays as is
                 break
         
         # Handle spans with styles
@@ -232,12 +240,12 @@ class HTML2TypstParser(HTMLParser):
                     # For list items with alignment, we handle it differently
                     if tag == 'li':
                         # Just note it in debug mode
-                        if self.context.debug and align not in ('left',):
-                            text = f'/* list item with alignment: {align} */ {text}'
+                        if align not in ('left',):
+                            self.context.log(f'Info: list item with alignment: {align}')
                     else:
                         text = f'#align({align})[{text}]'
-                elif align and align != 'left' and self.context.debug:
-                    text = f'/* unknown alignment: {align} */ {text}'
+                elif align and align != 'left':
+                    self.context.log(f'Warning: unknown alignment: {align}')
                 break
         
         # Add spacing to avoid Typst syntax errors and improve readability
@@ -247,16 +255,10 @@ class HTML2TypstParser(HTMLParser):
             last_char = last_stripped[-1:] if last_stripped else ''
             first_stripped = text.lstrip() if text else ''
             first_char = first_stripped[:1] if first_stripped else ''
-            first_two_chars = first_stripped[:2] if len(first_stripped) >= 2 else ''
             
             # Add space if last char is ] or ) and next text doesn't start with certain safe chars
             # Safe chars after ]: newline, space (already handled by lstrip), and certain punctuation
             if last_char in (']', ')') and first_char and first_char not in ('\n', ',', '.', ';', ':', '!', '?', ')', ']'):
-                self.result.append(' ')
-            
-            # Add space before block comments (/*) if previous char is * or /
-            # This prevents patterns like *//* which cause "unexpected end of block comment" errors
-            if first_two_chars == '/*' and last_char in ('*', '/'):
                 self.result.append(' ')
         
         self.result.append(text)
@@ -279,7 +281,7 @@ class HTML2TypstParser(HTMLParser):
             color = styles['color']
             if color and color != 'windowtext':
                 wrappers.append(f'#text(fill: {color})')
-            elif color == 'windowtext' and self.context.debug:
+            elif color == 'windowtext':
                 unsupported.append(f'color: {color}')
         
         # Handle background-color
@@ -326,7 +328,7 @@ class HTML2TypstParser(HTMLParser):
             weight = styles['font-weight']
             if weight in ('bold', '700', '800', '900'):
                 result = f'*{result}*'
-            elif self.context.debug:
+            else:
                 unsupported.append(f'font-weight: {weight}')
         
         # Handle font-style (italic)
@@ -334,16 +336,16 @@ class HTML2TypstParser(HTMLParser):
             style = styles['font-style']
             if style == 'italic':
                 result = f'_{result}_'
-            elif self.context.debug:
+            else:
                 unsupported.append(f'font-style: {style}')
         
         # Apply wrappers
         for wrapper in reversed(wrappers):
             result = f'{wrapper}[{result}]'
         
-        # Add debug info
-        if unsupported and self.context.debug:
-            result = f'/* unsupported styles: {", ".join(unsupported)} */ {result}'
+        # Log unsupported styles
+        if unsupported:
+            self.context.log(f'Warning: unsupported styles: {", ".join(unsupported)}')
         
         return result
     
@@ -364,13 +366,15 @@ class HTML2TypstParser(HTMLParser):
         return ''.join(self.result)
 
 
-def translate_html_to_typst(html: str, debug: bool = False) -> str:
+def translate_html_to_typst(html: str, debug: bool = False, log_file: Optional[str] = None) -> str:
     """
     Translate HTML (generated by Quill.js) to Typst code.
     
     Args:
         html: HTML string to convert
-        debug: If True, include debug comments and warnings in output
+        debug: If True, write debug messages to log file (if log_file is provided)
+        log_file: Optional path to log file for debug messages. If not provided and debug=True,
+                  logs will be written to 'html2typst_debug.log' in the current directory.
     
     Returns:
         Typst code as a string
@@ -381,21 +385,46 @@ def translate_html_to_typst(html: str, debug: bool = False) -> str:
         
         >>> translate_html_to_typst("<h1>Title</h1><p>Content</p>")
         '= Title\\n\\nContent\\n\\n'
+        
+        >>> translate_html_to_typst("<custom>Test</custom>", debug=True, log_file="debug.log")
+        'Test\\n\\n'
+        # Debug messages written to debug.log
     """
+    # Determine log file path
+    log_file_handle = None
+    should_close_log = False
+    
+    if debug:
+        if log_file is None:
+            log_file = 'html2typst_debug.log'
+        
+        try:
+            log_file_handle = open(log_file, 'w', encoding='utf-8')
+            should_close_log = True
+        except IOError as e:
+            # If we can't open the log file, write to stderr instead
+            print(f"Warning: Could not open log file '{log_file}': {e}", file=sys.stderr)
+            log_file_handle = None
+    
     # Create rendering context
-    context = RenderContext(debug=debug)
+    context = RenderContext(debug=debug, log_file=log_file_handle)
     
-    # Create parser
-    parser = HTML2TypstParser(context)
-    
-    # Parse HTML
-    parser.feed(html)
-    parser.close()
-    
-    # Get output
-    result = parser.get_output()
-    
-    # Clean up excessive newlines (but preserve structure)
-    result = re.sub(r'\n{4,}', '\n\n\n', result)
-    
-    return result
+    try:
+        # Create parser
+        parser = HTML2TypstParser(context)
+        
+        # Parse HTML
+        parser.feed(html)
+        parser.close()
+        
+        # Get output
+        result = parser.get_output()
+        
+        # Clean up excessive newlines (but preserve structure)
+        result = re.sub(r'\n{4,}', '\n\n\n', result)
+        
+        return result
+    finally:
+        # Close log file if we opened it
+        if should_close_log and log_file_handle:
+            log_file_handle.close()

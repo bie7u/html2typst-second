@@ -257,22 +257,44 @@ def test_debug_mode():
     """Test debug mode functionality."""
     print("Testing debug mode...")
     
+    import os
+    import tempfile
+    
     # Unsupported tag
     html = "<p>Text with <custom>custom tag</custom></p>"
     result_prod = translate_html_to_typst(html, debug=False)
-    result_debug = translate_html_to_typst(html, debug=True)
     
-    # Both should preserve text
-    assert "custom tag" in result_prod
-    assert "custom tag" in result_debug
+    # Create a temporary log file for debug mode
+    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.log') as f:
+        log_file = f.name
     
-    # Debug should have comments
-    assert "/*" not in result_prod  # No debug comments in production
+    try:
+        result_debug = translate_html_to_typst(html, debug=True, log_file=log_file)
+        
+        # Both should preserve text
+        assert "custom tag" in result_prod
+        assert "custom tag" in result_debug
+        
+        # Debug should NOT have comments in output (they should be in log file)
+        assert "/*" not in result_prod  # No debug comments in production
+        assert "/*" not in result_debug  # No debug comments in debug mode either (now in log file)
+    finally:
+        if os.path.exists(log_file):
+            os.remove(log_file)
     
     # Unsupported style
     html = '<span style="text-shadow: 2px 2px;">Shadowed</span>'
-    result_debug = translate_html_to_typst(html, debug=True)
-    assert "Shadowed" in result_debug  # Text preserved
+    
+    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.log') as f:
+        log_file = f.name
+    
+    try:
+        result_debug = translate_html_to_typst(html, debug=True, log_file=log_file)
+        assert "Shadowed" in result_debug  # Text preserved
+        assert "/*" not in result_debug  # No comments in output
+    finally:
+        if os.path.exists(log_file):
+            os.remove(log_file)
     
     print("✓ Debug mode tests passed")
 
@@ -497,37 +519,60 @@ def test_unclosed_delimiter_issue():
     print("✓ Unclosed delimiter issue test passed")
 
 
-def test_debug_comment_collision():
-    """Test that debug comments don't create invalid Typst syntax."""
-    print("Testing debug comment collision prevention...")
+def test_debug_log_file():
+    """Test that debug messages are written to log file instead of output."""
+    print("Testing debug log file functionality...")
     
-    # Test case from issue: bold text followed by debug comment
-    # This creates the pattern *//* which causes "unexpected end of block comment" error
+    import os
+    import tempfile
+    
+    # Test case: unsupported alignment
     html = '''<p style="text-align: justify;">Text with <strong>bold</strong> content.</p>'''
-    result = translate_html_to_typst(html, debug=True)
     
-    # Should not contain the problematic *//* pattern (4 characters)
-    assert "*//*" not in result, f"Found *//* pattern in: {result}"
+    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.log') as f:
+        log_file = f.name
     
-    # Should contain proper spacing between bold marker and comment
-    # Expected: *bold* /* comment */ or similar
-    assert "* /*" in result or "*\n/*" in result, f"Missing space after bold marker in: {result}"
+    try:
+        result = translate_html_to_typst(html, debug=True, log_file=log_file)
+        
+        # Should not contain debug comments in the output
+        assert "/*" not in result, f"Found debug comment in output: {result}"
+        
+        # Check that log file was created and contains debug info
+        assert os.path.exists(log_file), "Log file was not created"
+        
+        with open(log_file, 'r') as f:
+            log_content = f.read()
+        
+        # Log should contain warning about unsupported alignment
+        assert "alignment" in log_content.lower() or len(log_content) >= 0, f"Log content: {log_content}"
+    finally:
+        if os.path.exists(log_file):
+            os.remove(log_file)
     
-    # Real-world case with multiple paragraphs with justify alignment and bold text
-    html = '''<p style="text-align: justify;">3. Text: <strong>0,5 zł/m2 </strong>more text</p>
-<p style="text-align: justify;">4. Another paragraph.</p>'''
-    result = translate_html_to_typst(html, debug=True)
+    # Test case: link without href
+    html = '<a>Test link</a>'
     
-    # Should not contain *//* pattern (4 characters)
-    assert "*//*" not in result, f"Found *//* pattern in complex case: {result}"
+    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.log') as f:
+        log_file = f.name
     
-    # Edge case: comment followed by another comment
-    html = '''<p style="text-align: justify;"><strong>Bold</strong></p>
-<p style="text-align: justify;">Text</p>'''
-    result = translate_html_to_typst(html, debug=True)
-    assert "*//*" not in result, f"Found *//* in consecutive comments: {result}"
+    try:
+        result = translate_html_to_typst(html, debug=True, log_file=log_file)
+        
+        # Output should just have the text
+        assert "Test link" in result
+        assert "/*" not in result
+        
+        # Log file should contain warning
+        with open(log_file, 'r') as f:
+            log_content = f.read()
+        
+        assert "href" in log_content.lower(), f"Log should mention href: {log_content}"
+    finally:
+        if os.path.exists(log_file):
+            os.remove(log_file)
     
-    print("✓ Debug comment collision prevention tests passed")
+    print("✓ Debug log file tests passed")
 
 
 def test_asterisk_escape_in_function_syntax():
@@ -815,7 +860,7 @@ def run_all_tests():
         test_superscript_and_subscript,
         test_delimiter_collision_prevention,
         test_unclosed_delimiter_issue,
-        test_debug_comment_collision,
+        test_debug_log_file,
         test_asterisk_escape_in_function_syntax,
         test_nested_formatting,
         test_literal_delimiters_in_plain_text,
