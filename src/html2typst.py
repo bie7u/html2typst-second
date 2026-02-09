@@ -120,6 +120,16 @@ class HTML2TypstParser(HTMLParser):
         if has_strong and has_em:
             use_function_syntax = True
         
+        # Escape literal asterisks and underscores in plain text
+        # Do this BEFORE applying formatting to avoid escaping formatting delimiters
+        # Only escape if the text is NOT inside strong/em tags
+        if not has_strong and not has_em:
+            # Escape backslashes first to avoid double-escaping
+            text = text.replace('\\', '\\\\')
+            # Escape asterisks and underscores
+            text = text.replace('*', r'\*')
+            text = text.replace('_', r'\_')
+        
         # Apply formatting based on tag stack
         for tag, attrs in reversed(self.tag_stack):
             if tag in ('strong', 'b'):

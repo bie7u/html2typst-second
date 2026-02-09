@@ -635,6 +635,70 @@ def test_nested_formatting():
     print("✓ Nested formatting tests passed")
 
 
+def test_literal_delimiters_in_plain_text():
+    """Test that literal asterisks and underscores in plain text are properly escaped."""
+    print("Testing literal delimiters in plain text...")
+    
+    # Single asterisk in plain text
+    html = "<p>Price: 27,00 zł/udział*.</p>"
+    result = translate_html_to_typst(html)
+    assert "Price: 27,00 zł/udział" in result
+    # Asterisk should be escaped
+    assert r"\*" in result or "#text[" in result, f"Asterisk not escaped in: {result}"
+    
+    # Multiple asterisks in different paragraphs
+    html = "<p>Item one*</p><p>* Another item</p>"
+    result = translate_html_to_typst(html)
+    assert "Item one" in result and "Another item" in result
+    # Both asterisks should be escaped
+    assert result.count(r"\*") >= 2 or "#text[" in result, f"Not all asterisks escaped in: {result}"
+    
+    # Underscore in plain text (e.g., variable names)
+    html = "<p>The variable_name is important</p>"
+    result = translate_html_to_typst(html)
+    assert "variable" in result and "name" in result
+    # Underscore should be escaped
+    assert r"\_" in result or "#text[" in result, f"Underscore not escaped in: {result}"
+    
+    # Mixed asterisks and underscores
+    html = "<p>foo* and bar_ together</p>"
+    result = translate_html_to_typst(html)
+    assert "foo" in result and "bar" in result
+    # Both should be escaped
+    assert (r"\*" in result or "#text[" in result) and (r"\_" in result or "#text[" in result), f"Delimiters not escaped in: {result}"
+    
+    # Real-world case from issue: text ending with asterisk
+    html = """<p>2.Ustalhkjkhkhokości 27,00 zł/udział*.</p>
+<p>* w skhjkhkjhkjh03.2010r.</p>"""
+    result = translate_html_to_typst(html)
+    assert "27,00 zł/udział" in result
+    assert "w skhjkhkjhkjh03.2010r" in result
+    # Both asterisks should be escaped
+    assert result.count(r"\*") >= 2 or "#text[" in result, f"Problem case not fixed: {result}"
+    
+    # Asterisk in middle of text
+    html = "<p>Use * as a wildcard</p>"
+    result = translate_html_to_typst(html)
+    assert "Use" in result and "wildcard" in result
+    assert r"\*" in result or "#text[" in result, f"Middle asterisk not escaped in: {result}"
+    
+    # Multiple consecutive asterisks
+    html = "<p>Rating: ***</p>"
+    result = translate_html_to_typst(html)
+    assert "Rating:" in result
+    # Should escape all three asterisks
+    assert result.count(r"\*") >= 3 or "#text[" in result, f"Multiple asterisks not escaped in: {result}"
+    
+    # Underscore at start of text
+    html = "<p>_private_method</p>"
+    result = translate_html_to_typst(html)
+    assert "private" in result and "method" in result
+    # Should escape both underscores
+    assert result.count(r"\_") >= 2 or "#text[" in result, f"Underscores not escaped in: {result}"
+    
+    print("✓ Literal delimiters in plain text tests passed")
+
+
 def run_all_tests():
     """Run all tests."""
     print("\n" + "="*60)
@@ -665,6 +729,7 @@ def run_all_tests():
         test_debug_comment_collision,
         test_asterisk_escape_in_function_syntax,
         test_nested_formatting,
+        test_literal_delimiters_in_plain_text,
     ]
     
     passed = 0
