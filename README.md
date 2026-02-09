@@ -32,10 +32,11 @@ html = "<p>Hello <strong>world</strong></p>"
 typst = translate_html_to_typst(html)
 print(typst)  # Output: Hello *world*
 
-# With debug mode
+# With debug mode (logs written to file)
 html = "<p><custom>Unknown tag</custom></p>"
-typst = translate_html_to_typst(html, debug=True)
-print(typst)  # Output includes debug comments
+typst = translate_html_to_typst(html, debug=True, log_file='debug.log')
+print(typst)  # Output: clean Typst code
+# Debug messages are in debug.log file
 ```
 
 ## API
@@ -43,12 +44,13 @@ print(typst)  # Output includes debug comments
 ### Main Function
 
 ```python
-translate_html_to_typst(html: str, debug: bool = False) -> str
+translate_html_to_typst(html: str, debug: bool = False, log_file: Optional[str] = None) -> str
 ```
 
 **Parameters:**
 - `html` (str): HTML string to convert
-- `debug` (bool): If True, include debug comments and warnings in output
+- `debug` (bool): If True, write debug messages to log file
+- `log_file` (Optional[str]): Path to log file for debug messages. If not provided and debug=True, logs will be written to 'html2typst_debug.log' in the current directory.
 
 **Returns:**
 - str: Typst code
@@ -137,15 +139,20 @@ typst = translate_html_to_typst(html, debug=False)
 
 ### Debug Mode (debug=True)
 
-- Includes diagnostic comments
-- Reports unsupported tags, styles, and classes
+- Writes diagnostic messages to a log file
+- Reports unsupported tags, styles, and classes to the log
 - Helps identify conversion issues
 - **All text is still preserved**
+- **Output remains clean** - no debug comments in Typst output
 
 ```python
 html = '<p><unknown>Text</unknown></p>'
-typst = translate_html_to_typst(html, debug=True)
-# Output: "/* unsupported tag: unknown */ Text\n\n"
+typst = translate_html_to_typst(html, debug=True, log_file='debug.log')
+# Output: "Text\n\n"
+# debug.log contains warnings about unsupported elements
+```
+
+**Default log file:** If `log_file` is not specified, debug messages are written to `html2typst_debug.log` in the current directory.
 ```
 
 ## Examples

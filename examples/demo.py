@@ -164,9 +164,17 @@ def main():
     """
     print("\nInput HTML:")
     print(html_debug)
-    print("\nOutput Typst (debug=True):")
-    result = translate_html_to_typst(html_debug, debug=True)
+    print("\nOutput Typst (debug=True, logs written to debug.log):")
+    result = translate_html_to_typst(html_debug, debug=True, log_file='debug.log')
     print(result)
+    
+    # Show the debug log contents
+    import os
+    if os.path.exists('debug.log'):
+        print("\nDebug log content:")
+        with open('debug.log', 'r') as f:
+            print(f.read())
+        os.remove('debug.log')  # Clean up
     print("-"*70)
     
     print("\n\n✓ All examples completed successfully!")
