@@ -278,7 +278,7 @@ class HTML2TypstParser(HTMLParser):
         if 'color' in styles:
             color = styles['color']
             # Ignore system colors like 'windowtext' - they shouldn't be used in Typst
-            if color and color not in ('windowtext',):
+            if color and color not in {'windowtext'}:
                 wrappers.append(f'#text(fill: {color})')
         
         # Handle background-color
