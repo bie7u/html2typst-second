@@ -278,6 +278,9 @@ def test_debug_mode():
         # Debug should NOT have comments in output (they should be in log file)
         assert "/*" not in result_prod  # No debug comments in production
         assert "/*" not in result_debug  # No debug comments in debug mode either (now in log file)
+        
+        # Verify log file was created (even if empty for this particular test)
+        assert os.path.exists(log_file), "Log file should be created in debug mode"
     finally:
         if os.path.exists(log_file):
             os.remove(log_file)
@@ -545,7 +548,8 @@ def test_debug_log_file():
             log_content = f.read()
         
         # Log should contain warning about unsupported alignment
-        assert "alignment" in log_content.lower() or len(log_content) >= 0, f"Log content: {log_content}"
+        assert 'alignment' in log_content.lower() or 'justify' in log_content.lower(), \
+            f'Expected alignment warning in log, got: {log_content}'
     finally:
         if os.path.exists(log_file):
             os.remove(log_file)

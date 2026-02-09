@@ -27,9 +27,13 @@ class RenderContext:
     
     def log(self, message: str):
         """Write a debug message to the log file if debug mode is enabled."""
-        if self.debug and self.log_file:
-            self.log_file.write(f"{message}\n")
-            self.log_file.flush()
+        if self.debug:
+            if self.log_file:
+                self.log_file.write(f"{message}\n")
+                self.log_file.flush()
+            else:
+                # Fallback to stderr if log file is not available
+                print(f"[html2typst] {message}", file=sys.stderr)
     
     
 class HTML2TypstParser(HTMLParser):
@@ -260,6 +264,9 @@ class HTML2TypstParser(HTMLParser):
             # Safe chars after ]: newline, space (already handled by lstrip), and certain punctuation
             if last_char in (']', ')') and first_char and first_char not in ('\n', ',', '.', ';', ':', '!', '?', ')', ']'):
                 self.result.append(' ')
+            
+            # Note: Previously we checked for /* patterns to prevent debug comment collisions,
+            # but this is no longer needed since debug messages now go to log files instead
         
         self.result.append(text)
     
