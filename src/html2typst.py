@@ -112,6 +112,14 @@ class HTML2TypstParser(HTMLParser):
             if last_char in (']', '*', '_'):
                 use_function_syntax = True
         
+        # Check for nested bold/italic to avoid delimiter collisions
+        # If we have both strong and em in the tag stack, we must use function syntax
+        # to prevent patterns like *_text_* or _*text*_
+        has_strong = any(tag in ('strong', 'b') for tag, _ in self.tag_stack)
+        has_em = any(tag in ('em', 'i') for tag, _ in self.tag_stack)
+        if has_strong and has_em:
+            use_function_syntax = True
+        
         # Apply formatting based on tag stack
         for tag, attrs in reversed(self.tag_stack):
             if tag in ('strong', 'b'):
