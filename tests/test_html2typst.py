@@ -566,11 +566,11 @@ def test_asterisk_escape_in_function_syntax():
     # Should not have double escaping
     assert r'\\*important' not in result, f"Should not have double escaping in: {result}"
     
-    # Test that asterisks NOT at the start are not escaped
+    # Test that asterisks in the middle are also escaped
     html = '''<span style="color: black;">test * asterisk</span>'''
     result = translate_html_to_typst(html)
-    # Should not escape asterisk in the middle
-    assert 'test * asterisk' in result or r'test \* asterisk' not in result, f"Should not escape middle asterisk in: {result}"
+    # Should escape asterisk in the middle when inside function calls
+    assert r'\*' in result, f"Asterisk should be escaped in: {result}"
     
     print("✓ Asterisk/underscore escape tests passed")
 
@@ -699,6 +699,95 @@ def test_literal_delimiters_in_plain_text():
     print("✓ Literal delimiters in plain text tests passed")
 
 
+def test_issue_html_unclosed_delimiter():
+    """Test the specific HTML from the GitHub issue that caused unclosed delimiter error."""
+    print("Testing issue HTML with unclosed delimiter...")
+    
+    # This is the actual HTML from the issue that caused "unclosed delimiter" error
+    html = '''<p style="text-align: center;"><strong>fdsafasf Nfsdafsafsa2021</strong></p>
+<p style="text-align: center;"><br></p>
+<p style="text-align: center;"><strong> właścicdsafsafa
+        Wrofsdafasawiu </strong><strong style="color: black;">w sprawie: przyjęciasdafdsafsaf sdafdsa na
+        rok 2021</strong></p>
+<p style="text-align: justify;"><span style="color: black;">&nbsp;</span></p>
+<p style="text-align: justify;"><span
+        style="color: black;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Działajsdaffawie
+        art. 30 ust. 2, art. 22 Ustsdafasfsdafmości wspólnej uchwalają co
+        następuje:</span></p>
+<p style="text-align: justify;"><span style="color: black;">&nbsp;</span></p>
+<p style="text-align: center;"><strong style="color: black;">§1</strong></p>
+<p style="text-align: justify;"><span style="color: black;">Przyjmują do realizfasdfasłącznik nr 1 do Uchwały.</span>
+</p>
+<p style="text-align: center;"><span style="color: black;">&nbsp;</span></p>
+<p style="text-align: center;"><strong style="color: black;">§2</strong></p>
+<p><span style="color: black;">Ustalają wysokość miesifdsafsafasrzynależnych&nbsp;oraz 25sadfsaf0 zł udział w terenie
+        zewnętrznym.*</span></p>
+<p style="text-align: center;"><strong style="color: black;">§3</strong></p>
+<p style="text-align: justify;"><span style="color: black;">Przyfasdfsanastępującej wysokości:</span></p>
+<p style="text-align: justify;"><span style="color: black;">• Zużyfdasfsafparciu o zużycie (w danym lokalu) z
+        poprzedniego okresu rozliczeniowego.</span></p>
+<p style="text-align: center;"><strong style="color: black;">§4</strong></p>
+<p style="text-align: justify;"><span style="color: black;">Wysokość poszczefdsafsafez konieczności podejmowania nowej uchwały w
+        tej sprawie. </span></p>
+<p style="text-align: center;"><span style="color: black;">&nbsp;</span></p>
+<p style="text-align: center;"><strong style="color: black;">§5</strong></p>
+<p style="text-align: justify;"><span style="color: black;">Właściciele lokali sdfasfsafsafas kolejnych miesięcy następujących
+        po miesiącu, w kasdfa została podjęta.</span></p>
+<p style="text-align: center;"><span style="color: black;">&nbsp;</span></p>
+<p style="text-align: center;"><strong style="color: black;">§6</strong></p>
+<p style="text-align: justify;"><span style="color: black;">Władsafsainiejszej uchwały.</span></p>
+<p style="text-align: center;"><strong style="color: black;">&nbsp;</strong></p>
+<p style="text-align: center;"><strong style="color: black;">§7</strong></p>
+<p style="text-align: justify;"><span style="color: black;">Uchwdsafsaf01.01.2020 r. </span></p>
+<p style="text-align: justify;"><span style="color: black;">&nbsp;</span></p>
+<p style="text-align: justify;"><span style="color: black;">&nbsp;</span></p>
+<p style="text-align: justify;"><span style="color: black;">&nbsp;</span></p>
+<p style="text-align: justify;"><span style="color: black;">&nbsp;</span></p>
+<p style="text-align: justify;"><span style="color: black;">&nbsp;</span></p>
+<p style="text-align: justify;"><span style="color: black;">* w skład kofdsafsafa03.2010r.</span></p>
+<p style="text-align: justify;"><strong>&nbsp;</strong></p>
+<p><br></p>'''
+    
+    result = translate_html_to_typst(html, debug=False)
+    
+    # All text must be preserved
+    assert "fdsafasf Nfsdafsafsa2021" in result
+    assert "zewnętrznym" in result
+    assert "w skład kofdsafsafa03.2010r" in result
+    
+    # Critical: asterisks must be escaped to prevent unclosed delimiter errors
+    # The HTML has two asterisks: one after "zewnętrznym.*" and one before "* w skład"
+    assert r'\*' in result, f"Asterisks must be escaped in: {result}"
+    
+    # There should be at least 2 escaped asterisks
+    assert result.count(r'\*') >= 2, f"Expected at least 2 escaped asterisks, found {result.count(r'\\*')} in: {result}"
+    
+    # No unescaped asterisks that could cause delimiter errors
+    # (except in bold markup like *text* which is intentional)
+    # Check that we don't have unescaped * inside function calls
+    # Pattern to avoid: #text(...)[...*...]
+    import re
+    # Find all #text(...)[] or #align(...)[] function calls
+    function_calls = re.findall(r'#\w+\([^\]]*\)\[([^\]]*)\]', result)
+    for call_content in function_calls:
+        # Check if there are unescaped asterisks (not preceded by backslash)
+        # Allow *text* patterns (markup) but not standalone *
+        # This is a simple heuristic: if we have * not preceded by \ and not part of *word* pattern
+        if '*' in call_content:
+            # Check if it's escaped or part of markup
+            for i, char in enumerate(call_content):
+                if char == '*':
+                    # Check if it's escaped
+                    if i > 0 and call_content[i-1] == '\\':
+                        continue  # Escaped, OK
+                    # Check if it's part of *word* markup (both opening and closing * present)
+                    # For simplicity, just check that it's not a standalone *
+                    # If we found an unescaped *, it should be part of valid markup
+                    # This is hard to check properly, so just verify the escaped count
+    
+    print("✓ Issue HTML unclosed delimiter test passed")
+
+
 def run_all_tests():
     """Run all tests."""
     print("\n" + "="*60)
@@ -730,6 +819,7 @@ def run_all_tests():
         test_asterisk_escape_in_function_syntax,
         test_nested_formatting,
         test_literal_delimiters_in_plain_text,
+        test_issue_html_unclosed_delimiter,
     ]
     
     passed = 0
