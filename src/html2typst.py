@@ -231,10 +231,16 @@ class HTML2TypstParser(HTMLParser):
             last_char = last_stripped[-1:] if last_stripped else ''
             first_stripped = text.lstrip() if text else ''
             first_char = first_stripped[:1] if first_stripped else ''
+            first_two_chars = first_stripped[:2] if len(first_stripped) >= 2 else ''
             
             # Add space if last char is ] or ) and next text doesn't start with certain safe chars
             # Safe chars after ]: newline, space (already handled by lstrip), and certain punctuation
             if last_char in (']', ')') and first_char and first_char not in ('\n', ',', '.', ';', ':', '!', '?', ')', ']'):
+                self.result.append(' ')
+            
+            # Add space before block comments (/*) if previous char is * or /
+            # This prevents patterns like *//* which cause "unexpected end of block comment" errors
+            if first_two_chars == '/*' and last_char in ('*', '/'):
                 self.result.append(' ')
         
         self.result.append(text)
