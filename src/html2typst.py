@@ -236,7 +236,7 @@ class HTML2TypstParser(HTMLParser):
                             text = f'/* list item with alignment: {align} */ {text}'
                     else:
                         text = f'#align({align})[{text}]'
-                elif align and align != 'left' and self.context.debug:
+                elif align and align not in ('left', 'justify') and self.context.debug:
                     text = f'/* unknown alignment: {align} */ {text}'
                 break
         
@@ -277,10 +277,9 @@ class HTML2TypstParser(HTMLParser):
         # Handle color
         if 'color' in styles:
             color = styles['color']
-            if color and color != 'windowtext':
+            # Ignore system colors like 'windowtext' - they shouldn't be used in Typst
+            if color and color not in ('windowtext',):
                 wrappers.append(f'#text(fill: {color})')
-            elif color == 'windowtext' and self.context.debug:
-                unsupported.append(f'color: {color}')
         
         # Handle background-color
         if 'background-color' in styles:

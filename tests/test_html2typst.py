@@ -501,9 +501,9 @@ def test_debug_comment_collision():
     """Test that debug comments don't create invalid Typst syntax."""
     print("Testing debug comment collision prevention...")
     
-    # Test case from issue: bold text followed by debug comment
+    # Test case: bold text followed by debug comment (using unknown alignment)
     # This creates the pattern *//* which causes "unexpected end of block comment" error
-    html = '''<p style="text-align: justify;">Text with <strong>bold</strong> content.</p>'''
+    html = '''<p style="text-align: distributed;">Text with <strong>bold</strong> content.</p>'''
     result = translate_html_to_typst(html, debug=True)
     
     # Should not contain the problematic *//* pattern (4 characters)
@@ -513,19 +513,24 @@ def test_debug_comment_collision():
     # Expected: *bold* /* comment */ or similar
     assert "* /*" in result or "*\n/*" in result, f"Missing space after bold marker in: {result}"
     
-    # Real-world case with multiple paragraphs with justify alignment and bold text
-    html = '''<p style="text-align: justify;">3. Text: <strong>0,5 zł/m2 </strong>more text</p>
-<p style="text-align: justify;">4. Another paragraph.</p>'''
+    # Real-world case with multiple paragraphs with unknown alignment and bold text
+    html = '''<p style="text-align: distributed;">3. Text: <strong>0,5 zł/m2 </strong>more text</p>
+<p style="text-align: distributed;">4. Another paragraph.</p>'''
     result = translate_html_to_typst(html, debug=True)
     
     # Should not contain *//* pattern (4 characters)
     assert "*//*" not in result, f"Found *//* pattern in complex case: {result}"
     
     # Edge case: comment followed by another comment
-    html = '''<p style="text-align: justify;"><strong>Bold</strong></p>
-<p style="text-align: justify;">Text</p>'''
+    html = '''<p style="text-align: distributed;"><strong>Bold</strong></p>
+<p style="text-align: distributed;">Text</p>'''
     result = translate_html_to_typst(html, debug=True)
     assert "*//*" not in result, f"Found *//* in consecutive comments: {result}"
+    
+    # Verify that justify alignment doesn't produce warnings (it's a known alignment)
+    html = '''<p style="text-align: justify;">Text with <strong>bold</strong> content.</p>'''
+    result = translate_html_to_typst(html, debug=True)
+    assert "unknown alignment" not in result, f"Found unexpected warning for justify in: {result}"
     
     print("✓ Debug comment collision prevention tests passed")
 
@@ -788,6 +793,45 @@ def test_issue_html_unclosed_delimiter():
     print("✓ Issue HTML unclosed delimiter test passed")
 
 
+def test_justify_and_windowtext_no_warnings():
+    """Test that justify alignment and windowtext color don't produce warnings."""
+    print("Testing justify and windowtext handling...")
+    
+    # Test justify alignment - should not produce warnings even in debug mode
+    html = '<p style="text-align: justify;">Justified text</p>'
+    result_debug = translate_html_to_typst(html, debug=True)
+    result_prod = translate_html_to_typst(html, debug=False)
+    
+    assert "unknown alignment" not in result_debug, f"Justify should not produce warning in: {result_debug}"
+    assert "Justified text" in result_debug, "Text should be preserved"
+    assert result_debug == result_prod, "Debug and production mode should produce same output for justify"
+    
+    # Test windowtext color - should not produce warnings even in debug mode
+    html = '<span style="color: windowtext;">Text with windowtext color</span>'
+    result_debug = translate_html_to_typst(html, debug=True)
+    result_prod = translate_html_to_typst(html, debug=False)
+    
+    assert "unsupported styles" not in result_debug, f"Windowtext should not produce warning in: {result_debug}"
+    assert "color: windowtext" not in result_debug, f"Windowtext warning should not appear in: {result_debug}"
+    assert "Text with windowtext color" in result_debug, "Text should be preserved"
+    assert result_debug == result_prod, "Debug and production mode should produce same output for windowtext"
+    
+    # Test both together
+    html = '<p style="text-align: justify;"><span style="color: windowtext;">Combined test</span></p>'
+    result_debug = translate_html_to_typst(html, debug=True)
+    result_prod = translate_html_to_typst(html, debug=False)
+    
+    assert "unknown alignment" not in result_debug, "Should not warn about justify"
+    assert "unsupported styles" not in result_debug, "Should not warn about windowtext"
+    assert "Combined test" in result_debug, "Text should be preserved"
+    assert result_debug == result_prod, "Debug and production mode should produce same output"
+    
+    # Verify the actual output is clean (no debug comments)
+    assert "/*" not in result_debug, f"Should not have debug comments in: {result_debug}"
+    
+    print("✓ Justify and windowtext handling tests passed")
+
+
 def run_all_tests():
     """Run all tests."""
     print("\n" + "="*60)
@@ -820,6 +864,7 @@ def run_all_tests():
         test_nested_formatting,
         test_literal_delimiters_in_plain_text,
         test_issue_html_unclosed_delimiter,
+        test_justify_and_windowtext_no_warnings,
     ]
     
     passed = 0
