@@ -321,12 +321,13 @@ class HTML2TypstParser(HTMLParser):
             elif self.context.debug:
                 unsupported.append(f'font-style: {style}')
         
+        # Before applying wrappers, escape markup delimiters at the start of content
+        # to prevent Typst from interpreting them as formatting when inside function calls
+        if wrappers and result and result[0] in ('*', '_'):
+            result = '\\' + result
+        
         # Apply wrappers
         for wrapper in reversed(wrappers):
-            # Before wrapping, escape markup delimiters at the start of content
-            # to prevent Typst from interpreting them as formatting
-            if result and result[0] in ('*', '_'):
-                result = '\\' + result
             result = f'{wrapper}[{result}]'
         
         # Add debug info
