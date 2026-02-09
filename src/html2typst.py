@@ -102,12 +102,14 @@ class HTML2TypstParser(HTMLParser):
         
         # Check if we need to use function syntax instead of markup syntax
         # This is needed when the previous output ends with ] (from a function call)
-        # because Typst parser has issues with ]*...* pattern
+        # or * or _ (from markup) to avoid delimiter collision errors in Typst
         use_function_syntax = False
         if self.result and len(self.result) > 0:
             last_stripped = self.result[-1].rstrip() if self.result[-1] else ''
             last_char = last_stripped[-1:] if last_stripped else ''
-            if last_char == ']':
+            # Use function syntax if previous output ends with ], *, or _
+            # This prevents patterns like ]*text*, **text*, or __text_
+            if last_char in (']', '*', '_'):
                 use_function_syntax = True
         
         # Apply formatting based on tag stack
@@ -125,6 +127,15 @@ class HTML2TypstParser(HTMLParser):
                     text = f'#emph[{text}]'
                 else:
                     text = f'_{text}_'
+                break
+        
+        # Handle superscript and subscript (must be processed after bold/italic)
+        for tag, attrs in reversed(self.tag_stack):
+            if tag == 'sup':
+                text = f'#super[{text}]'
+                break
+            elif tag == 'sub':
+                text = f'#sub[{text}]'
                 break
         
         # Handle headings
