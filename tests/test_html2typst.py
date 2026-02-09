@@ -530,6 +530,51 @@ def test_debug_comment_collision():
     print("✓ Debug comment collision prevention tests passed")
 
 
+def test_asterisk_escape_in_function_syntax():
+    """Test that asterisks and underscores are escaped when they appear at the start of content in function calls."""
+    print("Testing asterisk/underscore escape in function syntax...")
+    
+    # Asterisk at start of styled span
+    html = '<span style="color: black;">*.</span>'
+    result = translate_html_to_typst(html)
+    # Should escape the asterisk to prevent it from being interpreted as bold delimiter
+    assert r'\*' in result or r'[*.]' not in result, f"Asterisk should be escaped: {result}"
+    assert '*.' in result or r'\*.' in result, "Text should be preserved"
+    
+    # Underscore at start of styled span
+    html = '<span style="color: black;">_test</span>'
+    result = translate_html_to_typst(html)
+    # Should escape the underscore to prevent it from being interpreted as italic delimiter
+    assert r'\_' in result or r'[_test]' not in result, f"Underscore should be escaped: {result}"
+    assert '_test' in result or r'\_test' in result, "Text should be preserved"
+    
+    # Real-world case from issue: paragraph with styled text ending in asterisk
+    html = '''<p style="text-align: justify;"><span style="color: black;">text </span><strong>2,30 zł/m2</strong><span style="color: black;">*.</span></p>'''
+    result = translate_html_to_typst(html)
+    # Should not have unescaped [*.] pattern
+    assert '[*.]' not in result or r'[\*.]' in result, f"Should escape asterisk in function call: {result}"
+    # Text should be preserved
+    assert '*.' in result or r'\*.' in result
+    
+    # Asterisk at the start of a paragraph with styled text
+    html = '''<p style="text-align: justify;"><span style="color: black;">* w skład kosztów</span></p>'''
+    result = translate_html_to_typst(html)
+    # Should not have unescaped [* w skład] pattern
+    assert '[* w' not in result or r'[\* w' in result, f"Should escape asterisk in function call: {result}"
+    # Text should be preserved
+    assert '* w skład' in result or r'\* w skład' in result
+    
+    # Multiple wrappers (e.g., color + size) with asterisk at start
+    html = '''<span style="color: red; font-size: 14px;">*important</span>'''
+    result = translate_html_to_typst(html)
+    # Should escape the asterisk
+    assert r'\*important' in result or '[*important]' not in result, f"Should escape asterisk: {result}"
+    # Text should be preserved
+    assert '*important' in result or r'\*important' in result
+    
+    print("✓ Asterisk/underscore escape tests passed")
+
+
 def run_all_tests():
     """Run all tests."""
     print("\n" + "="*60)
@@ -558,6 +603,7 @@ def run_all_tests():
         test_delimiter_collision_prevention,
         test_unclosed_delimiter_issue,
         test_debug_comment_collision,
+        test_asterisk_escape_in_function_syntax,
     ]
     
     passed = 0

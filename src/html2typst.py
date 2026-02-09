@@ -323,6 +323,10 @@ class HTML2TypstParser(HTMLParser):
         
         # Apply wrappers
         for wrapper in reversed(wrappers):
+            # Before wrapping, escape markup delimiters at the start of content
+            # to prevent Typst from interpreting them as formatting
+            if result and result[0] in ('*', '_'):
+                result = '\\' + result
             result = f'{wrapper}[{result}]'
         
         # Add debug info
